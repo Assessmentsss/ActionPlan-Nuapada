@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nuapada FLN tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style id="css">
+:root{
+  --navy:#00316B; --yellow:#FFD400;
+  --bg:#F4F6FA; --surface:#FFFFFF; --ink:#00316B; --muted:#4F6A8F; --line:#CCD6E4; --soft:#E8EEF6;
+  --accent:#00316B; --hi:#FFD400; --hi-soft:#FFF4B3; --on-accent:#FFFFFF;
+  --todo:#9AA8BC; --doing:#FFD400; --done:#00316B; --blocked:#C0392B;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#001A3A; --surface:#00244F; --ink:#F2F5FA; --muted:#A9BAD3; --line:#1D4373; --soft:#0A3263;
+    --accent:#FFD400; --hi:#FFD400; --hi-soft:#3D3A12; --on-accent:#00316B;
+    --todo:#6F81A0; --doing:#FFD400; --done:#7FA8E0; --blocked:#F07A6E; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#001A3A; --surface:#00244F; --ink:#F2F5FA; --muted:#A9BAD3; --line:#1D4373; --soft:#0A3263;
+  --accent:#FFD400; --hi:#FFD400; --hi-soft:#3D3A12; --on-accent:#00316B;
+  --todo:#6F81A0; --doing:#FFD400; --done:#7FA8E0; --blocked:#F07A6E; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Public Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 64px}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1{font-size:clamp(1.6rem,3.2vw,2.2rem);line-height:1.15;font-weight:800;letter-spacing:-.02em;margin:0}
+h2{font-size:1.15rem;font-weight:800;margin:0 0 12px}
+.sub{color:var(--muted);margin:4px 0 0}
+.top{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;margin:-28px -20px 24px;padding:28px 20px 22px;background:var(--navy);color:#fff;border-bottom:6px solid var(--yellow)}
+.top h1{color:#fff}.top .sub{color:#C9D6EA}.top .savestate{color:#C9D6EA}.top .savestate.dirty{color:var(--yellow)}
+.top .btn.quiet{color:#fff;border-color:#3A5F92}
+.top .btn.primary{background:var(--yellow);border-color:var(--yellow);color:var(--navy)}
+.dist{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:12px;font-size:.85rem;color:#C9D6EA}
+.dist b{color:#fff;margin-right:8px}
+.dist span{background:rgba(255,212,0,.16);border:1px solid var(--yellow);color:var(--yellow);border-radius:999px;padding:1px 10px;font-weight:600}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.savestate{font-size:.85rem;color:var(--muted)}
+.savestate.dirty{font-weight:600}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:8px 14px;font-weight:600;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.quiet{background:transparent}
+.btn.sm{padding:4px 10px;font-size:.85rem}
+
+/* flow: the signature element */
+.flow{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:0;overflow-x:auto;padding-bottom:4px}
+.step{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px 14px;margin-right:22px;min-width:150px}
+.step:last-child{margin-right:0}
+.step:not(:last-child)::after{content:"";position:absolute;right:-17px;top:50%;width:12px;height:12px;border-top:2.5px solid var(--accent);border-right:2.5px solid var(--accent);transform:translateY(-50%) rotate(45deg)}
+.step.now{border:2px solid var(--accent);box-shadow:0 0 0 4px var(--hi)}
+.step .when{font-size:.78rem;font-weight:700;color:var(--muted)}
+.step .ph{font-size:1.1rem;font-weight:800;color:var(--accent);margin:2px 0 6px}
+.step .now-tag{position:absolute;top:10px;right:10px;font-size:.66rem;font-weight:700;background:var(--hi);color:var(--navy);border-radius:3px;padding:1px 6px}
+.step ul{margin:0 0 10px;padding-left:16px;font-size:.82rem;color:var(--muted)}
+.bar{height:6px;border-radius:3px;background:var(--soft);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--hi)}
+.bar{border:1px solid var(--line)}
+.step .pc{font-size:.78rem;color:var(--muted);margin-top:4px}
+.visits{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 28px;align-items:center}
+.visits .lbl{font-size:.82rem;font-weight:700;color:var(--muted);margin-right:4px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px;font-size:.82rem}
+.chip.past{opacity:.55}
+.chip.next{border-color:var(--hi);background:var(--hi-soft);font-weight:700}
+.chip i{width:8px;height:8px;border-radius:50%;background:var(--hi);border:1.5px solid var(--accent);display:block}
+
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:28px}
+.stat{background:var(--surface);padding:14px 16px}
+.stat b{display:block;font-size:1.5rem;font-weight:800;line-height:1.2;color:var(--accent)}
+.stat{border-top:4px solid var(--hi)}
+.stat span{font-size:.85rem;color:var(--muted)}
+.stat small{display:block;font-size:.8rem;color:var(--muted);margin-top:2px}
+
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:18px;overflow-x:auto}
+.tab{all:unset;cursor:pointer;padding:10px 14px;font-weight:600;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-color:var(--hi)}
+.tab .n{font-size:.75rem;font-weight:700;background:var(--soft);border-radius:999px;padding:0 7px;margin-left:6px}
+.tab .n.red{background:var(--blocked);color:#fff}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px;min-width:0}
+
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.fbtn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;font-size:.85rem;font-weight:600;cursor:pointer}
+.fbtn[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.month{margin-bottom:18px}
+.month h3{display:flex;align-items:baseline;gap:10px;font-size:1rem;font-weight:800;margin:0 0 6px}
+.month h3 small{font-weight:600;color:var(--muted);font-size:.82rem}
+.task{display:grid;grid-template-columns:118px 1fr minmax(160px,34%);gap:10px;align-items:start;padding:8px 10px;border-top:1px solid var(--soft);border-left:4px solid var(--c,var(--todo))}
+.task:first-of-type{border-top:0}
+.task .txt{font-size:.92rem;padding-top:4px}
+.task .tagw{display:inline-block;font-size:.7rem;font-weight:700;border-radius:3px;padding:0 5px;margin-right:6px;vertical-align:1px;background:var(--soft);color:var(--muted)}
+.task.is-done .txt{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--line)}
+@media (max-width:720px){.task{grid-template-columns:1fr}}
+[data-s="todo"]{--c:var(--todo)} [data-s="doing"]{--c:var(--doing)} [data-s="done"]{--c:var(--done)} [data-s="blocked"]{--c:var(--blocked)}
+.cell{width:100%;border:1px solid transparent;background:transparent;border-radius:4px;padding:5px 6px;font-size:.88rem;line-height:1.4}
+.cell:hover{border-color:var(--line)}
+.cell:focus{border-color:var(--accent);background:var(--surface);outline:none}
+select.cell{border-color:var(--line);font-weight:600;background:color-mix(in srgb,var(--c,var(--todo)) 14%,var(--surface))}
+textarea.cell{resize:vertical;min-height:34px}
+
+.tbl-scroll{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+table{border-collapse:separate;border-spacing:0;width:100%}
+th,td{border-bottom:1px solid var(--line);padding:8px;vertical-align:top;text-align:left}
+th{font-size:.8rem;font-weight:700;color:var(--ink);background:var(--soft)}
+tr:last-child td{border-bottom:0}
+td input.cell[type=number]{width:70px;border-color:var(--line)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+@media (max-width:860px){.grid2{grid-template-columns:1fr}}
+.chart svg{width:100%;height:auto;display:block}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.form label{display:flex;flex-direction:column;gap:4px;font-size:.8rem;font-weight:600;color:var(--muted)}
+.form input,.form select,.form textarea{font-size:.92rem;color:var(--ink);border:1px solid var(--line);background:var(--bg);border-radius:5px;padding:7px 9px;width:100%}
+.form .wide{grid-column:1/-1}
+.reg{list-style:none;margin:0;padding:0}
+.reg li{padding:9px 0;border-top:1px solid var(--soft);font-size:.9rem}
+.reg li:first-child{border-top:0}
+.reg .src{font-size:.75rem;font-weight:700;color:var(--muted);display:block}
+.reg button{all:unset;cursor:pointer;color:var(--accent);font-weight:700;font-size:.82rem;margin-left:8px}
+.empty{color:var(--muted);font-size:.9rem;margin:0}
+.rate{border:1px solid var(--line);border-radius:4px;padding:4px 6px;font-size:.82rem;width:100%;background:color-mix(in srgb,var(--c,var(--todo)) 14%,var(--surface));font-weight:600}
+.rate[data-r="0"]{--c:var(--todo)} .rate[data-r="1"]{--c:var(--blocked)} .rate[data-r="2"]{--c:var(--doing)} .rate[data-r="3"]{--c:var(--done)}
+.hint{font-size:.82rem;color:var(--muted);margin:10px 2px 0}
+.setup{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:16px}
+.setup label{display:flex;flex-direction:column;gap:4px;font-size:.78rem;font-weight:600;color:var(--muted)}
+.setup input{border:1px solid var(--line);background:var(--bg);border-radius:5px;padding:5px 8px;font-size:.88rem;color:var(--ink)}
+details.cfg summary{cursor:pointer;font-size:.85rem;font-weight:600;color:var(--muted);margin-bottom:10px}
+.ro .cell,.ro input,.ro select,.ro textarea{pointer-events:none}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script id="state" type="application/json">{}</script>
+<script id="app">
+(function(){
+var MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+var STATUSES=[["todo","To do"],["doing","In progress"],["done","Done"],["blocked","Blocked"]];
+var GROUPS={D:"District plan",P:"DTSP pilot"};
+var MKEYS=["oct","nov","dec","jan","feb","mar","ongoing"];
+var MLABEL={oct:"October 2026",nov:"November 2026",dec:"December 2026",jan:"January 2027",feb:"February 2027",mar:"March 2027",ongoing:"Ongoing"};
+var MSTART={oct:[2026,9],nov:[2026,10],dec:[2026,11],jan:[2027,0],feb:[2027,1],mar:[2027,2]};
+var PHASES=[
+ {k:"Prepare",m:["oct"],when:"Oct 2026",items:["Finalise schools","Baseline","Mentoring plans"]},
+ {k:"Mentor",m:["nov"],when:"Nov 2026",items:["Weekly mentoring","First district visit","Monitoring visits"]},
+ {k:"Mid-point",m:["dec"],when:"Dec 2026",items:["Midline","District review","Revise plans"]},
+ {k:"Deepen",m:["jan"],when:"Jan 2027",items:["Teacher independence","MCM and PARAKH links","Case studies"]},
+ {k:"Endline",m:["feb","mar"],when:"Feb – Mar 2027",items:["Endline","Consolidation","Next-phase plan"]}
+];
+var INDICATORS=["Student learning","Re-acceleration","Teacher planning","Classroom practice","Learning materials","Assessment and remediation","Teacher development","System support","Model schools"];
+var RATES=["Not reviewed","Weak","Emerging","Consistent"];
+var IMONTHS=["oct","nov","dec","jan","feb"];
+var BLOCKS=["Nuapada","Boden","Khariar","Komna","Sinapali"];
+var DISTRICT="Nuapada";
+var DRAFT_KEY="nuapada-tracker-draft";
+
+function T(g,m,t,s){return {g:g,m:m,t:t,s:s||"todo",n:""};}
+function defaultState(){
+ var tasks=[
+  T("P","oct","Finalise five model schools, one from each block","done"),
+  T("P","oct","Map FLN teachers, CRCCs, head teachers and stakeholders","done"),
+  T("P","oct","Go through baseline data of the five schools","doing"),
+  T("P","oct","Baseline assessment of priority FLN competencies"),
+  T("P","oct","Initial classroom observations (after Puja vacation)"),
+  T("P","oct","School-wise action plan and individual mentoring plan per teacher"),
+  T("P","oct","Inform the DEO formally during the visit"),
+  T("D","nov","Attend DIET–CRC linkage meeting (Saikhika Sambala dissemination)"),
+  T("D","nov","Observe Saikhika Sambala integration into MCMs"),
+  T("D","nov","Classroom visits: transaction and remediation in practice"),
+  T("D","nov","Review student records; agree district/block follow-up actions"),
+  T("P","nov","Begin weekly direct mentoring of the five model-school teachers"),
+  T("P","nov","Pick one or two priority competencies per mentoring cycle"),
+  T("P","nov","Review student-level records and group children by need"),
+  T("P","nov","Align daily remediation with Saikhika Sambala"),
+  T("P","nov","Visit the five monitoring schools; assign corrective actions"),
+  T("P","nov","Share practices through MCMs and block reviews"),
+  T("P","nov","Deliverable: November progress review"),
+  T("D","dec","Review implementation since the November visit"),
+  T("D","dec","Observe classroom practice and assess remediation quality"),
+  T("D","dec","Review PRAYAAS and learning progress; set corrective actions"),
+  T("P","dec","Midline assessment against baseline competencies"),
+  T("P","dec","Sort learners: progressed, same level, need extra support"),
+  T("P","dec","Follow-up observations: are teachers practising independently?"),
+  T("P","dec","District review with DEO, ADEO, pedagogy coordinator, DIET, BEOs"),
+  T("P","dec","Deliverable: mid-pilot review and revised teacher plans"),
+  T("D","jan","Review learning progression, CRCC follow-up and MCM quality"),
+  T("D","jan","Address persistent gaps through district and block reviews"),
+  T("P","jan","Mentoring focus: practices not yet adopted consistently"),
+  T("P","jan","Check whether remediation leads to mastery"),
+  T("P","jan","CRCC peer learning with DIET support"),
+  T("P","jan","Integrate pilot learning into MCMs and PARAKH"),
+  T("P","jan","Draft school-level case studies"),
+  T("D","feb","Verify classroom implementation and learning evidence"),
+  T("D","feb","Review progress of the 144 focus schools"),
+  T("D","feb","Document practices from the five model schools"),
+  T("P","feb","Endline assessment (last week Feb / first week Mar)"),
+  T("P","feb","Compare baseline and endline results"),
+  T("P","feb","Final classroom observations"),
+  T("P","feb","District consolidation meeting"),
+  T("P","feb","Deliverable: endline report, case studies, scale-up roadmap"),
+  T("D","mar","Consolidate implementation and learning-outcome data"),
+  T("D","mar","Review achievements and gaps through district mechanisms"),
+  T("D","mar","Develop the next-phase action plan"),
+  T("D","ongoing","One-day CRCC orientation on middle management and mentoring"),
+  T("D","ongoing","Weekly data sharing: COT, SPOT, MCM, Sikshana Sopan"),
+  T("D","ongoing","Fortnightly CRCC and school-level review of priority learners")
+ ];
+ tasks.forEach(function(t,i){t.id="t"+i;});
+ return {v:1,savedAt:null,
+  visits:[{label:"November visit",d:"2026-11-02"},{label:"December visit",d:"2026-12-01"},{label:"January visit",d:"2027-01-18"},{label:"February visit",d:"2027-02-22"}],
+  tasks:tasks,
+  schools:BLOCKS.map(function(b){return {block:b,name:"",crcc:"",teacher:"",base:"",mid:"",end:"",next:""};}),
+  log:[],ind:{},nextId:tasks.length};
+}
+
+var saved=null;
+try{saved=JSON.parse(document.getElementById("state").textContent||"{}");}catch(e){saved=null;}
+var state=(saved&&saved.tasks)?saved:defaultState();
+function migrate(st){var order=st.schools.map(function(s){return BLOCKS.indexOf(s.block);});if(order.every(function(o,i){return o===i;}))return st;
+  var idx=st.schools.map(function(s,i){return i;}).sort(function(a,b){return BLOCKS.indexOf(st.schools[a].block)-BLOCKS.indexOf(st.schools[b].block);});
+  var map={};idx.forEach(function(oldI,newI){map[oldI]=newI;});st.schools=idx.map(function(i){return st.schools[i];});st.log.forEach(function(l){l.school=map[+l.school];});return st;}
+state=migrate(state);
+var dirty=false,saving=false,readOnly=false,art=null,dl=null,capsKnown=false,msg="";
+var ui={tab:"plan",filter:"all"};
+try{var d=JSON.parse(localStorage.getItem(DRAFT_KEY)||"null");if(d&&d.state&&d.basedOn===(state.savedAt||null)){state=migrate(d.state);dirty=true;}}catch(e){}
+try{var u=JSON.parse(localStorage.getItem(DRAFT_KEY+"-ui")||"null");if(u)ui=u;}catch(e){}
+
+var CSS=document.getElementById("css").textContent;
+var APP=document.getElementById("app").textContent;
+
+function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function parseDate(s){var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s||"");return m?new Date(+m[1],+m[2]-1,+m[3]):null;}
+function fmt(d){return d.getDate()+" "+MONTHS[d.getMonth()];}
+function today(){var t=new Date();t.setHours(0,0,0,0);return t;}
+function num(v){var n=parseFloat(v);return isFinite(n)?n:null;}
+function sLabel(k){for(var i=0;i<STATUSES.length;i++)if(STATUSES[i][0]===k)return STATUSES[i][1];return k;}
+function schoolName(i){var s=state.schools[i];return s?(s.name||s.block+" model school"):"";}
+function nowPhase(){var t=today(),y=t.getFullYear(),m=t.getMonth();
+  if(y<2026||(y===2026&&m<10))return 0; if(y===2026&&m===10)return 1; if(y===2026&&m===11)return 2; if(y===2027&&m===0)return 3; return 4;}
+function curMonthKey(){var t=today();for(var k in MSTART){if(MSTART[k][0]===t.getFullYear()&&MSTART[k][1]===t.getMonth())return k;}return null;}
+
+var root=document.getElementById("root");
+function render(){
+  root.innerHTML='<div class="wrap">'+
+   '<header class="top"><div><h1>Nuapada FLN tracker</h1><p class="sub">District action plan and Direct Teacher Support Programme, October 2026 to March 2027</p>'+
+   '<div class="dist"><b>District: '+DISTRICT+'</b>Blocks: '+BLOCKS.map(function(b){return '<span>'+b+'</span>';}).join("")+'</div></div>'+
+   '<div class="actions"><span class="savestate" id="savestate" aria-live="polite"></span><button class="btn quiet" id="csv" hidden>Export CSV</button><button class="btn primary" id="save">Save changes</button></div></header>'+
+   '<section class="flow" id="flow" aria-label="Plan phases"></section>'+
+   '<div class="visits" id="visits"></div>'+
+   '<section class="summary" id="summary"></section>'+
+   '<nav class="tabs" role="tablist" id="tabs"></nav>'+
+   '<section id="body"></section>'+
+  '</div>';
+  refresh();renderBody();updateSaveUI();
+}
+function refresh(){renderFlow();renderVisits();renderSummary();renderTabs();}
+
+function phaseStats(p){var ts=state.tasks.filter(function(t){return p.m.indexOf(t.m)>-1;});var d=ts.filter(function(t){return t.s==="done";}).length;return [d,ts.length];}
+function renderFlow(){
+  var now=nowPhase();
+  document.getElementById("flow").innerHTML=PHASES.map(function(p,i){
+    var st=phaseStats(p),pc=st[1]?Math.round(100*st[0]/st[1]):0;
+    return '<div class="step'+(i===now?' now':'')+'">'+(i===now?'<span class="now-tag">Now</span>':'')+
+     '<div class="when">'+esc(p.when)+'</div><div class="ph">'+esc(p.k)+'</div><ul>'+p.items.map(function(x){return '<li>'+esc(x)+'</li>';}).join("")+'</ul>'+
+     '<div class="bar"><i style="width:'+pc+'%"></i></div><div class="pc">'+st[0]+' of '+st[1]+' tasks done</div></div>';
+  }).join("");
+}
+function nextVisit(){var t=today(),best=null;state.visits.forEach(function(v){var d=parseDate(v.d);if(d&&d>=t&&(!best||d<best.date))best={v:v,date:d};});return best;}
+function renderVisits(){
+  var t=today(),nx=nextVisit();
+  document.getElementById("visits").innerHTML='<span class="lbl">District visits</span>'+state.visits.map(function(v){var d=parseDate(v.d);
+    var cls=d&&d<t?" past":(nx&&nx.v===v?" next":"");
+    return '<span class="chip'+cls+'"><i></i>'+esc(v.label)+(d?', week of '+fmt(d):'')+'</span>';}).join("");
+}
+function blockers(){
+  var out=[];
+  state.tasks.forEach(function(t){if(t.s==="blocked")out.push({src:MLABEL[t.m]+", "+GROUPS[t.g],txt:t.t+(t.n?": "+t.n:""),task:t.id});});
+  state.log.forEach(function(l){if(!l.fu&&l.actions)out.push({src:"Visit follow-up, "+schoolName(l.school)+(parseDate(l.d)?", "+fmt(parseDate(l.d)):""),txt:l.actions,log:l.id});});
+  return out;
+}
+function renderSummary(){
+  var all=state.tasks.length,done=state.tasks.filter(function(t){return t.s==="done";}).length;
+  var nx=nextVisit(),days=nx?Math.round((nx.date-today())/864e5):null;
+  var mk=curMonthKey(),t=today();
+  var mv=state.log.filter(function(l){var d=parseDate(l.d);return d&&d.getMonth()===t.getMonth()&&d.getFullYear()===t.getFullYear();});
+  var phys={};mv.forEach(function(l){if(l.mode==="Physical")phys[l.school]=1;});
+  var nb=blockers().length;
+  document.getElementById("summary").innerHTML=
+   stat(done+" / "+all,"Tasks done",Math.round(100*done/(all||1))+"% of the plan")+
+   stat(nx?(days===0?"Today":days+" days"):"–","Until next district visit",nx?esc(nx.v.label)+", week of "+fmt(nx.date):"No upcoming visits")+
+   stat(Object.keys(phys).length+" / 5","Model schools visited this month",mv.length+" visit"+(mv.length===1?"":"s")+" logged in "+MONTHS[t.getMonth()])+
+   stat(String(nb),"Open blockers and follow-ups",nb?"See the Blockers tab":"Nothing open");
+}
+function stat(b,s,sm){return '<div class="stat"><b>'+b+'</b><span>'+s+'</span><small>'+sm+'</small></div>';}
+function renderTabs(){
+  var nb=blockers().length;
+  var tabs=[["plan","Action plan"],["schools","Model schools"],["log","Visit log",state.log.length],["ind","Indicators"],["blk","Blockers",nb]];
+  document.getElementById("tabs").innerHTML=tabs.map(function(t){
+    var n=t[2]?'<span class="n'+(t[0]==="blk"?" red":"")+'">'+t[2]+'</span>':"";
+    return '<button class="tab" role="tab" data-tab="'+t[0]+'" aria-selected="'+(ui.tab===t[0])+'">'+t[1]+n+'</button>';}).join("");
+}
+
+function renderBody(){
+  var b=document.getElementById("body");
+  if(ui.tab==="plan")b.innerHTML=planHTML();
+  else if(ui.tab==="schools")b.innerHTML=schoolsHTML();
+  else if(ui.tab==="log")b.innerHTML=logHTML();
+  else if(ui.tab==="ind")b.innerHTML=indHTML();
+  else b.innerHTML=blkHTML();
+  applyReadOnly();
+}
+function planHTML(){
+  var f=[["all","Everything"],["D","District plan"],["P","DTSP pilot"],["open","Not done yet"]];
+  var cm=curMonthKey();
+  var h='<div class="filters">'+f.map(function(x){return '<button class="fbtn" data-filter="'+x[0]+'" aria-pressed="'+(ui.filter===x[0])+'">'+x[1]+'</button>';}).join("")+'</div>';
+  MKEYS.forEach(function(m){
+    var ts=state.tasks.filter(function(t){return t.m===m&&(ui.filter==="all"||(ui.filter==="open"?t.s!=="done":t.g===ui.filter));});
+    if(!ts.length)return;
+    var all=state.tasks.filter(function(t){return t.m===m;}),dn=all.filter(function(t){return t.s==="done";}).length;
+    h+='<div class="month panel" id="m-'+m+'"><h3>'+MLABEL[m]+(m===cm?' <small>this month</small>':'')+'<small>'+dn+' of '+all.length+' done</small></h3>'+
+    ts.map(function(t){return '<div class="task'+(t.s==="done"?' is-done':'')+'" data-s="'+t.s+'" id="row-'+t.id+'">'+
+      '<select class="cell" data-task="'+t.id+'" data-f="s" aria-label="Status">'+STATUSES.map(function(s){return '<option value="'+s[0]+'"'+(s[0]===t.s?' selected':'')+'>'+s[1]+'</option>';}).join("")+'</select>'+
+      '<div class="txt"><span class="tagw">'+(t.g==="D"?"District":"DTSP")+'</span>'+esc(t.t)+'</div>'+
+      '<textarea class="cell" rows="1" data-task="'+t.id+'" data-f="n" placeholder="Notes, dates, who" aria-label="Notes">'+esc(t.n)+'</textarea></div>';}).join("")+'</div>';
+  });
+  h+='<details class="cfg panel"><summary>Add your own task</summary><div class="form"><label class="wide">Task<input id="nt-t" placeholder="What needs doing"></label>'+
+   '<label>Month<select id="nt-m">'+MKEYS.map(function(m){return '<option value="'+m+'"'+(m===cm?' selected':'')+'>'+MLABEL[m]+'</option>';}).join("")+'</select></label>'+
+   '<label>Workstream<select id="nt-g"><option value="P">DTSP pilot</option><option value="D">District plan</option></select></label>'+
+   '<label>&nbsp;<button class="btn" id="nt-add">Add task</button></label></div></details>';
+  h+='<p class="hint">Set a task to Blocked and write why in its notes; it will appear in the Blockers tab. Press Ctrl+S or ⌘S to save.</p>';
+  return h;
+}
+function schoolsHTML(){
+  var h='<div class="tbl-scroll"><table style="min-width:980px"><thead><tr><th>Block</th><th>School</th><th>CRCC</th><th>FLN teacher</th><th>Baseline %</th><th>Midline %</th><th>Endline %</th><th>Visits</th><th>Next action</th></tr></thead><tbody>';
+  state.schools.forEach(function(s,i){
+    var vs=state.log.filter(function(l){return +l.school===i;}),last=null;vs.forEach(function(l){var d=parseDate(l.d);if(d&&(!last||d>last))last=d;});
+    h+='<tr><td style="font-weight:700">'+esc(s.block)+'</td>'+
+     sc(i,"name",s.name,"School name")+sc(i,"crcc",s.crcc,"Name")+sc(i,"teacher",s.teacher,"Name")+
+     sn(i,"base",s.base)+sn(i,"mid",s.mid)+sn(i,"end",s.end)+
+     '<td style="white-space:nowrap">'+vs.length+(last?'<br><small style="color:var(--muted)">last '+fmt(last)+'</small>':'')+'</td>'+
+     '<td style="min-width:200px"><textarea class="cell" rows="1" data-school="'+i+'" data-f="next" placeholder="Agreed next step">'+esc(s.next)+'</textarea></td></tr>';
+  });
+  h+='</tbody></table></div><div class="grid2"><div class="panel chart"><h2>Learning levels by school</h2><div id="chart">'+chartSVG()+'</div></div>'+
+   '<div class="panel"><h2>How to use</h2><p class="empty">Enter the share of children at grade level for each assessment round. Baseline is October, midline December, endline late February or early March. Visit counts fill in from the Visit log.</p></div></div>';
+  return h;
+}
+function sc(i,f,v,ph){return '<td><input class="cell" data-school="'+i+'" data-f="'+f+'" value="'+esc(v)+'" placeholder="'+ph+'"></td>';}
+function sn(i,f,v){return '<td><input type="number" min="0" max="100" step="0.1" class="cell" data-school="'+i+'" data-f="'+f+'" value="'+esc(v)+'" placeholder="–"></td>';}
+function chartSVG(){
+  var W=560,H=210,pl=30,pb=34,pt=10,pr=8,S=state.schools,gw=(W-pl-pr)/S.length,bw=Math.min(22,(gw-16)/3);
+  var cols=["var(--todo)","var(--hi)","var(--accent)"],keys=["base","mid","end"],names=["Baseline","Midline","Endline"];
+  function Y(v){return pt+(100-v)*(H-pt-pb)/100;}
+  var s='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Learning levels by school"><g font-size="10" fill="var(--muted)">';
+  for(var g=0;g<=100;g+=25)s+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+Y(g)+'" y2="'+Y(g)+'" stroke="var(--soft)"/><text x="'+(pl-5)+'" y="'+(Y(g)+3)+'" text-anchor="end">'+g+'</text>';
+  var any=false;
+  S.forEach(function(sc,i){var x0=pl+i*gw+(gw-3*bw-8)/2;
+    keys.forEach(function(k,j){var v=num(sc[k]);if(v===null)return;any=true;var x=x0+j*(bw+4);
+      s+='<rect x="'+x+'" y="'+Y(v)+'" width="'+bw+'" height="'+(Y(0)-Y(v))+'" rx="2" fill="'+cols[j]+'"><title>'+esc(sc.block)+' '+names[j]+': '+v+'%</title></rect>';});
+    s+='<text x="'+(pl+i*gw+gw/2)+'" y="'+(H-18)+'" text-anchor="middle">'+esc(sc.block)+'</text>';});
+  s+='</g><g font-size="10" fill="var(--muted)">'+names.map(function(n,j){var x=pl+j*80;return '<rect x="'+x+'" y="'+(H-10)+'" width="9" height="9" rx="2" fill="'+cols[j]+'"/><text x="'+(x+13)+'" y="'+(H-2)+'">'+n+'</text>';}).join("")+'</g>';
+  if(!any)s+='<text x="'+(W/2)+'" y="'+(H/2)+'" text-anchor="middle" font-size="12" fill="var(--muted)">Add baseline scores in the table to see the chart</text>';
+  return s+'</svg>';
+}
+function logHTML(){
+  var t=today(),ds=t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0");
+  var h='<div class="panel" style="margin-bottom:16px"><h2>Log a visit or mentoring session</h2><div class="form">'+
+   '<label>Date<input type="date" id="lv-d" value="'+ds+'"></label>'+
+   '<label>School<select id="lv-s">'+state.schools.map(function(s,i){return '<option value="'+i+'">'+esc(schoolName(i))+'</option>';}).join("")+'</select></label>'+
+   '<label>Mode<select id="lv-m"><option>Physical</option><option>Virtual</option></select></label>'+
+   '<label class="wide">What you saw and worked on<textarea id="lv-f" rows="2" placeholder="Observation, demonstration, co-planning, student work reviewed"></textarea></label>'+
+   '<label class="wide">Agreed actions and owner<textarea id="lv-a" rows="2" placeholder="Leave blank if nothing to follow up"></textarea></label>'+
+   '<label><button class="btn primary" id="lv-add">Add to log</button></label></div></div>';
+  if(!state.log.length)return h+'<p class="empty">No visits logged yet. Each entry with agreed actions shows up under Blockers until you tick it as followed up.</p>';
+  var rows=state.log.slice().sort(function(a,b){return a.d<b.d?1:-1;});
+  h+='<div class="tbl-scroll"><table style="min-width:860px"><thead><tr><th>Date</th><th>School</th><th>Mode</th><th>What you saw and worked on</th><th>Agreed actions</th><th>Followed up</th><th></th></tr></thead><tbody>'+
+   rows.map(function(l){var d=parseDate(l.d);return '<tr><td style="white-space:nowrap">'+(d?fmt(d)+" "+d.getFullYear():"")+'</td><td>'+esc(schoolName(l.school))+'</td><td>'+esc(l.mode)+'</td>'+
+    '<td><textarea class="cell" rows="2" data-log="'+l.id+'" data-f="focus">'+esc(l.focus)+'</textarea></td><td><textarea class="cell" rows="2" data-log="'+l.id+'" data-f="actions">'+esc(l.actions)+'</textarea></td>'+
+    '<td><input type="checkbox" data-log="'+l.id+'" data-f="fu"'+(l.fu?' checked':'')+' aria-label="Followed up"></td><td><button class="btn sm quiet" data-del="'+l.id+'">Remove</button></td></tr>';}).join("")+
+   '</tbody></table></div>';
+  return h;
+}
+function indHTML(){
+  var h='<div class="tbl-scroll"><table style="min-width:720px"><thead><tr><th>Domain</th>'+IMONTHS.map(function(m){return '<th>'+MLABEL[m].split(" ")[0]+'</th>';}).join("")+'</tr></thead><tbody>';
+  INDICATORS.forEach(function(name,i){
+    h+='<tr><td style="font-weight:600">'+esc(name)+'</td>'+IMONTHS.map(function(m){var r=(state.ind[i]&&state.ind[i][m])||0;
+      return '<td><select class="rate" data-ind="'+i+'" data-m="'+m+'" data-r="'+r+'" aria-label="'+esc(name)+' '+m+'">'+RATES.map(function(x,j){return '<option value="'+j+'"'+(j==r?' selected':'')+'>'+x+'</option>';}).join("")+'</select></td>';}).join("")+'</tr>';
+  });
+  return h+'</tbody></table></div><p class="hint">Rate each domain from the plan’s monitoring indicators once a month across the five model schools. Endline in late February closes the cycle.</p>';
+}
+function blkHTML(){
+  var b=blockers();
+  if(!b.length)return '<div class="panel"><p class="empty">Nothing open. Blocked tasks and visit actions not yet followed up will collect here.</p></div>';
+  return '<div class="panel"><ul class="reg">'+b.map(function(x){return '<li><span class="src">'+esc(x.src)+'</span>'+esc(x.txt)+
+    (x.task?'<button data-gotask="'+x.task+'">Open task</button>':'<button data-fu="'+x.log+'">Mark followed up</button>')+'</li>';}).join("")+'</ul></div>';
+}
+
+/* editing */
+var draftTimer=null;
+function markDirty(){dirty=true;msg="";updateSaveUI();clearTimeout(draftTimer);
+  draftTimer=setTimeout(function(){try{localStorage.setItem(DRAFT_KEY,JSON.stringify({basedOn:state.savedAt||null,state:state}));}catch(e){}},400);}
+function saveUI(){try{localStorage.setItem(DRAFT_KEY+"-ui",JSON.stringify(ui));}catch(e){}}
+function findTask(id){for(var i=0;i<state.tasks.length;i++)if(state.tasks[i].id===id)return state.tasks[i];}
+function findLog(id){for(var i=0;i<state.log.length;i++)if(state.log[i].id===id)return state.log[i];}
+root.addEventListener("input",function(e){
+  if(readOnly)return;var t=e.target,ds=t.dataset;
+  if(ds.task){var k=findTask(ds.task);if(!k)return;k[ds.f]=t.value;
+    if(ds.f==="s"){var r=document.getElementById("row-"+k.id);r.dataset.s=t.value;r.classList.toggle("is-done",t.value==="done");}}
+  else if(ds.school){state.schools[+ds.school][ds.f]=t.value;if(ds.f!=="next"&&ds.f!=="crcc"&&ds.f!=="teacher"){var c=document.getElementById("chart");if(c)c.innerHTML=chartSVG();}}
+  else if(ds.log){var l=findLog(ds.log);if(!l)return;l[ds.f]=ds.f==="fu"?t.checked:t.value;}
+  else if(ds.ind){state.ind[ds.ind]=state.ind[ds.ind]||{};state.ind[ds.ind][ds.m]=+t.value;t.dataset.r=t.value;}
+  else return;
+  markDirty();refresh();
+});
+root.addEventListener("click",function(e){
+  var el=e.target.closest("button");if(!el)return;var ds=el.dataset;
+  if(ds.tab){ui.tab=ds.tab;saveUI();renderTabs();renderBody();return;}
+  if(ds.filter){ui.filter=ds.filter;saveUI();renderBody();return;}
+  if(ds.gotask){ui.tab="plan";ui.filter="all";renderTabs();renderBody();var r=document.getElementById("row-"+ds.gotask);if(r){r.scrollIntoView({block:"center"});var n=r.querySelector("textarea");if(n)n.focus({preventScroll:true});}return;}
+  if(el.id==="save"){save();return;}
+  if(el.id==="csv"){exportCsv();return;}
+  if(readOnly)return;
+  if(ds.fu){var l=findLog(ds.fu);if(l){l.fu=true;markDirty();refresh();renderBody();}return;}
+  if(ds.del){if(!confirm("Remove this visit from the log?"))return;state.log=state.log.filter(function(x){return x.id!==ds.del;});markDirty();refresh();renderBody();return;}
+  if(el.id==="lv-add"){var f=document.getElementById("lv-f").value.trim(),a=document.getElementById("lv-a").value.trim(),dd=document.getElementById("lv-d").value;
+    if(!dd){alert("Add a date for the visit.");return;}
+    state.log.push({id:"v"+(state.nextId++),d:dd,school:+document.getElementById("lv-s").value,mode:document.getElementById("lv-m").value,focus:f,actions:a,fu:!a});
+    markDirty();refresh();renderBody();return;}
+  if(el.id==="nt-add"){var tt=document.getElementById("nt-t").value.trim();if(!tt)return;
+    state.tasks.push({id:"t"+(state.nextId++),g:document.getElementById("nt-g").value,m:document.getElementById("nt-m").value,t:tt,s:"todo",n:""});
+    markDirty();refresh();renderBody();return;}
+});
+document.addEventListener("keydown",function(e){if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="s"){e.preventDefault();save();}});
+
+/* saving */
+function updateSaveUI(){
+  var b=document.getElementById("save"),st=document.getElementById("savestate"),c=document.getElementById("csv");if(!b)return;
+  c.hidden=!dl;
+  if(readOnly){b.hidden=true;st.className="savestate";st.textContent=msg||"Read-only view";return;}
+  b.disabled=!dirty||saving||!art;b.textContent=saving?"Saving…":"Save changes";
+  st.className="savestate"+(dirty?" dirty":"");
+  if(msg)st.textContent=msg;
+  else if(dirty)st.textContent=(capsKnown&&!art)?"Saving isn’t available here; edits are kept in this browser":"Unsaved changes";
+  else st.textContent=state.savedAt?"Saved "+new Date(state.savedAt).toLocaleString(undefined,{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):"Not saved yet";
+}
+function applyReadOnly(){if(!readOnly)return;root.classList.add("ro");root.querySelectorAll("#body input,#body select,#body textarea").forEach(function(el){el.disabled=true;});
+  root.querySelectorAll("#lv-add,#nt-add,[data-del],[data-fu]").forEach(function(x){x.hidden=true;});}
+function buildDoc(s){
+  var json=JSON.stringify(s).replace(/</g,"\\u003c"),sc="scr"+"ipt";
+  return '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n<title>Nuapada FLN tracker</title>\n'+
+   '<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'+
+   '<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">\n'+
+   '<style id="css">'+CSS+'</style>\n</head>\n<body>\n<div id="root"></div>\n'+
+   '<'+sc+' id="state" type="application/json">'+json+'</'+sc+'>\n<'+sc+' id="app">'+APP+'</'+sc+'>\n</body>\n</html>\n';
+}
+function save(){
+  if(!art||!dirty||saving||readOnly)return;saving=true;msg="";updateSaveUI();
+  var next=JSON.parse(JSON.stringify(state));next.savedAt=new Date().toISOString();
+  art.publish(buildDoc(next)).then(function(){msg="Saved";dirty=false;saving=false;try{localStorage.removeItem(DRAFT_KEY);}catch(e){}updateSaveUI();},function(err){
+    saving=false;var c=err&&err.code;
+    if(c==="conflict")msg="A newer version was saved elsewhere. Loading it…";
+    else if(["not_writer","not_granted","consent_required","not_declared","capability_disabled","capability_removed"].indexOf(c)>-1){readOnly=true;msg="Read-only view";render();return;}
+    else if(c==="rate_limited")msg="Saving too often. Wait a moment, then save again.";
+    else if(c==="too_large")msg="Tracker is too large to save. Shorten some long notes.";
+    else msg="Couldn’t save. Your edits are kept in this browser; try again.";
+    updateSaveUI();});
+}
+function exportCsv(){
+  if(!dl)return;
+  function q(v){v=String(v==null?"":v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+  var rows=[["Month","Workstream","Task","Status","Notes"]].concat(state.tasks.map(function(t){return [MLABEL[t.m],GROUPS[t.g],t.t,sLabel(t.s),t.n];}));
+  rows.push([]);rows.push(["Visit date","School","Mode","What you saw and worked on","Agreed actions","Followed up"]);
+  state.log.forEach(function(l){rows.push([l.d,schoolName(l.school),l.mode,l.focus,l.actions,l.fu?"Yes":"No"]);});
+  rows.push([]);rows.push(["Block","School","CRCC","Teacher","Baseline %","Midline %","Endline %","Next action"]);
+  state.schools.forEach(function(s){rows.push([s.block,s.name,s.crcc,s.teacher,s.base,s.mid,s.end,s.next]);});
+  dl.save({filename:"nuapada-fln-tracker.csv",data:rows.map(function(r){return r.map(q).join(",");}).join("\n")}).then(function(){},function(err){if(err&&err.code==="declined")return;msg="Export didn’t complete.";updateSaveUI();});
+}
+
+render();
+if(window.claude&&window.claude.use){
+  window.claude.use("artifact").then(function(a){art=a;capsKnown=true;updateSaveUI();},function(){capsKnown=true;updateSaveUI();});
+  window.claude.use("downloads").then(function(d){dl=d;updateSaveUI();},function(){});
+}else{capsKnown=true;updateSaveUI();}
+})();
+</script>
+</body>
+</html>
